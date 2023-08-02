@@ -10,7 +10,9 @@ import com.surajrathod.mvidemo.repository.MainRepoImpl
 import com.surajrathod.mvidemo.repository.MainRepository
 import com.surajrathod.mvidemo.viewstate.MainState
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.flow.update
@@ -19,8 +21,8 @@ import kotlinx.coroutines.launch
 class MainViewModel(private val repo: MainRepository) : ViewModel() {
 
     val userIntent = Channel<MainIntent>(Channel.UNLIMITED)
-    private val _state = MutableStateFlow<MainState>(MainState.Idle)
-    val state: StateFlow<MainState> get() = _state
+    private val _state = MutableSharedFlow<MainState>()
+    val state: SharedFlow<MainState> get() = _state
 
     init {
         handleIntent()
@@ -41,19 +43,17 @@ class MainViewModel(private val repo: MainRepository) : ViewModel() {
 
     private fun displayMessage(msg: String?) {
         viewModelScope.launch {
-            _state.update {
-                MainState.ShowMsg(msg)
-            }
+            _state.emit(MainState.ShowMsg(msg))
         }
     }
 
     private fun fetchUser() {
         viewModelScope.launch {
-            _state.value = MainState.Loading
-            _state.value = try {
-                MainState.Users(repo.loadUsers())
+            _state.emit(MainState.Loading)
+            try {
+                _state.emit(MainState.Users(repo.loadUsers()))
             } catch (e: Exception) {
-                MainState.Error(e.localizedMessage)
+                _state.emit(MainState.Error(e.localizedMessage))
             }
         }
     }
